@@ -6,6 +6,8 @@ import facultyModel from '../models/faculty.model.js';
 import handleError from '../middleware/error_logs/handleError.js';
 import adminModel from '../models/admin.model.js';
 
+// Upload media file
+
 const facultyPath = path.join("public/faculty/")
 
 const storage = multer.diskStorage({
@@ -18,6 +20,9 @@ const storage = multer.diskStorage({
 })
 
 export const facultyMulter = multer({ storage: storage })
+
+
+//create faculty code
 
 export const createFaculty = async(req, res) => {
     const {adminid} = req.params;
@@ -75,6 +80,33 @@ export const createFaculty = async(req, res) => {
 
         // Return success response
         return handleError(res, 201, "faculty created successfully", saveFaculty, token)
+
+    } catch (e) {
+        return handleError(res, 500, `internal error ${e}`)
+    }
+}
+
+
+//login faculty code
+
+export const loginFaculty = async (req, res) => {
+    const {facultyEmail, facultyPassword} = req.body;
+
+    if(!facultyEmail || !facultyPassword) {
+        return handleError(res, 400, "All field are required");
+    }
+    try {
+        const checkEmail = await facultyModel.findOne({facultyEmail});
+        if(!checkEmail)
+            return handleError(res, 400, "Invalid faculty email");
+        
+        const comparePass = await bcrypt.compare(facultyPassword, checkEmail.facultyPassword)
+        
+        if(!comparePass) {
+            return handleError(res, 400, "Invalid faculty password");
+        }else{
+            return handleError(res, 200, "Login Successfull");
+        }
 
     } catch (e) {
         return handleError(res, 500, `internal error ${e}`)

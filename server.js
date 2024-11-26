@@ -23,6 +23,7 @@ app.use("/api/v1", adminRouter)
 app.use("/api/v1", facultyRouter)
 
 
+
 app.listen(port, ()=>{
     console.log(`Server running on http://localhost:${port}`);
     db();
