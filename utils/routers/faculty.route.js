@@ -3,7 +3,6 @@ import { createFaculty, facultyMulter, loginFaculty } from '../controllers/facul
 const facultyRouter = express.Router();
 
 facultyRouter.post("/admin/:adminid/create-faculty", facultyMulter.single('facultyProfile'), createFaculty)
-
 facultyRouter.post("/login-faculty", loginFaculty)
 
 export default facultyRouter;

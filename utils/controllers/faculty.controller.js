@@ -22,7 +22,7 @@ const storage = multer.diskStorage({
 export const facultyMulter = multer({ storage: storage })
 
 
-//create faculty code
+//create faculty API
 
 export const createFaculty = async(req, res) => {
     const {adminid} = req.params;
@@ -87,7 +87,7 @@ export const createFaculty = async(req, res) => {
 }
 
 
-//login faculty code
+//login faculty API
 
 export const loginFaculty = async (req, res) => {
     const {facultyEmail, facultyPassword} = req.body;
