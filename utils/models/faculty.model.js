@@ -15,7 +15,6 @@ const facultySchema = new mongoose.Schema({
     facultyPassword: {
         type: String,
         minLength: 6,
-        // maxLength: 12,
         required: true
     },
     facultyProfile: String,

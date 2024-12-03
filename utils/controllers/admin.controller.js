@@ -6,6 +6,8 @@ import handleError from '../middleware/error_logs/handleError.js';
 import adminModel from '../models/admin.model.js';
 import mongoose from 'mongoose';
 import facultyModel from '../models/faculty.model.js'
+import courseModel from '../models/course.model.js';
+import studentModel from '../models/student.model.js';
 
 const adminPath = path.join("public/admin/")
 
@@ -72,7 +74,6 @@ export const createAdmin = async (req, res) => {
 
 
 // Find faculty using admin API
-
 export const findFacultyById = async(req, res) => {
 
     const {adminid, fid} = req.params;
@@ -141,7 +142,7 @@ export const getAllFaculty= async(req, res) => {
 
 
 
-// Delete faculty API by admin and faculty ID
+// Delete faculty by admin and faculty ID
 export const deleteFacultyById = async(req, res) => {
     const {adminid, fid} = req.params;
 
@@ -161,13 +162,22 @@ export const deleteFacultyById = async(req, res) => {
         if(!isValidAdminId) 
             return handleError(res, 400, "Admin not found with the provided ID.")
         
-        // Check Faculty ID
-        const isValidFacultyId = await facultyModel.findByIdAndDelete(fid);
-    
-        if(!isValidFacultyId){
+        // Check & Delete Faculty ID
+        const deletedFaculty = await facultyModel.findByIdAndDelete(fid);
+        
+        if(!deletedFaculty){
             return handleError(res, 400, "Faculty not found with the provided ID.")
         }
-            return handleError(res, 200, "Delete Faculty Successfully", isValidFacultyId)
+
+        // Delete Associated Courses
+        const deleteAssociatedCourses = await courseModel.deleteMany({ facultyId: fid });
+        const coursesDeleted = deleteAssociatedCourses.deletedCount;
+
+        return handleError(
+            res,
+            200,
+            `Faculty and ${coursesDeleted} associated course(s) deleted successfully.`
+        );
         
     } catch (error) {
         // console.error("Error finding faculty by ID:", error);
@@ -207,28 +217,144 @@ export const deleteAllFacultyByAdmin = async(req, res) => {
 }
 
 
+// Delete all Courses by Admin Id
+export const deleteAllCourses = async(req, res) => {
+    const {adminid} = req.params
+    
+    if (!adminid) {
+        return handleError(res, 400, "Admin ID not provided.");
+    }
 
-// Update faculty by Admin and Faculty Id
-export const updateFaculty = async(req, res) => {
-    const {adminid, fid} = req.params;
-    const {facultyName, facultyEmail, facultyMobile, adminId} = req.body;
-    const facultyProfile = req.file;
+    // Check if ID are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(adminid)) {
+        return handleError(res, 400, "Invalid Admin ID format.");
+    }
+    
+    try {
+        const isVarifyAdmin = await adminModel.findById(adminid)
+        if(!isVarifyAdmin)
+            return handleError(res, 400, "Admin not found with the provided ID.")
+        console.log(20)
+        const deleteAllCourse = await courseModel.deleteMany();
+        const coursesDeleted = deleteAllCourse.deletedCount;
+        if(deleteAllCourse) {
+            return handleError(
+                res,
+                200,
+                `${coursesDeleted} course deleted successfully.`,
+            );
+        }
+    } catch (error) {
+        return handleError(res,500,"Internal Server Error")
+    }
+}
 
-    // if(!facultyProfile) {
-    //     return handleError(res,400, "Faculty Profile required")
-    // }
-    // if(!facultyName || !facultyEmail || !facultyMobile || !adminId){
-    //     return handleError(res,400,"All fields are required")
-    // }
+
+// get all Courses by Admin Id
+export const getAllCourses = async(req, res) => {
+    const {adminid} = req.params
+    
+    if (!adminid) {
+        return handleError(res, 400, "Admin ID not provided.");
+    }
+
+    // Check if ID are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(adminid)) {
+        return handleError(res, 400, "Invalid Admin ID format.");
+    }
+    
+    try {
+        const isVarifyAdmin = await adminModel.findById(adminid)
+        if(!isVarifyAdmin)
+            return handleError(res, 400, "Admin not found with the provided ID.")
+        
+        const findCourses = await courseModel.find().populate('facultyId')
+        if(findCourses) {
+            return handleError(res, 200, " All Courses Found", findCourses)
+        }
+    } catch (error) {
+        return handleError(res,500,"Internal Server Error")
+    }
+}
+
+
+
+// Get all students by admin id
+export const getAllStudent= async(req, res) => {
+    const {adminid} = req.params
+    
+    if (!adminid) {
+        return handleError(res, 400, "Admin ID not provided.");
+    }
+
+    // Check if ID are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(adminid)) {
+        return handleError(res, 400, "Invalid Admin ID format.");
+    }
+    
+    try {
+        const isVarifyAdmin = await adminModel.findById(adminid)
+        if(!isVarifyAdmin)
+            return handleError(res, 400, "Admin not found with the provided ID.")
+        
+        const findAllStudent = await studentModel.find()
+        if(findAllStudent) {
+            return handleError(res, 200, "Success", findAllStudent)
+        }
+        
+    } catch (error) {
+        console.error("Error finding Student by Admin ID:", error);
+        return handleError(res,500,"Internal Server Error")
+    }
+}
+
+
+
+// Delete all students by Admin Id
+export const deleteAllStudent = async(req, res) => {
+    const {adminid} = req.params
+    
+    if (!adminid) {
+        return handleError(res, 400, "Admin ID not provided.");
+    }
+
+    // Check if ID are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(adminid)) {
+        return handleError(res, 400, "Invalid Admin ID format.");
+    }
+    
+    try {
+        const isVarifyAdmin = await adminModel.findById(adminid)
+        if(!isVarifyAdmin)
+            return handleError(res, 400, "Admin not found with the provided ID.")
+        const deleteAllStudent = await studentModel.deleteMany();
+        const studentDeleted = deleteAllStudent.deletedCount;
+        if(deleteAllStudent) {
+            return handleError(
+                res,
+                200,
+                `${studentDeleted} students deleted successfully.`,
+            );
+        }
+    } catch (error) {
+        return handleError(res,500,"Internal Server Error")
+    }
+}
+
+
+
+// Delete student by admin and student ID
+export const deleteStudentById = async(req, res) => {
+    const {adminid, sid} = req.params;
 
     // Validate input
-    if (!adminid || !fid) {
-        return handleError(res, 400, "Admin ID or Faculty ID not provided.");
+    if (!adminid || !sid) {
+        return handleError(res, 400, "Admin ID or Student ID not provided.");
     }
 
     // Check if IDs are valid ObjectIds
-    if (!mongoose.Types.ObjectId.isValid(adminid) || !mongoose.Types.ObjectId.isValid(fid)) {
-        return handleError(res, 400, "Invalid Admin ID or Faculty ID format.");
+    if (!mongoose.Types.ObjectId.isValid(adminid) || !mongoose.Types.ObjectId.isValid(sid)) {
+        return handleError(res, 400, "Invalid Admin ID or Student ID format.");
     }
 
     try {
@@ -236,19 +362,14 @@ export const updateFaculty = async(req, res) => {
         const isValidAdminId = await adminModel.findById(adminid);
         if(!isValidAdminId) 
             return handleError(res, 400, "Admin not found with the provided ID.")
-
-        const checkIds = isValidAdminId._id.toString() !== adminId.toString();
-        if(checkIds) {
-            return handleError(res,400,"Invalid admin id from body field")
-        }
         
-        // Check Faculty ID
-        const isValidFacultyId = await facultyModel.findByIdAndUpdate(fid, {facultyName, facultyEmail, facultyMobile, adminId}, {new:true});
-    
-        if(!isValidFacultyId){
-            return handleError(res, 400, "Faculty not found or updated with the provided ID.")
+        // Check & Delete Faculty ID
+        const deletedStudent = await studentModel.findByIdAndDelete(sid);
+        
+        if(!deletedStudent){
+            return handleError(res, 400, "Student not found with the provided ID.")
         }
-            return handleError(res, 200, "Faculty Updated Successfully", isValidFacultyId)
+        return handleError(res, 200, "Student Deleted fSuccessfully.", deletedStudent)
         
     } catch (error) {
         // console.error("Error finding faculty by ID:", error);

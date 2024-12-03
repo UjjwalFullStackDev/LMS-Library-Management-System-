@@ -5,9 +5,10 @@ import path from 'path'
 import facultyModel from '../models/faculty.model.js';
 import handleError from '../middleware/error_logs/handleError.js';
 import adminModel from '../models/admin.model.js';
+import mongoose from 'mongoose';
+import courseModel from '../models/course.model.js';
 
 // Upload media file
-
 const facultyPath = path.join("public/faculty/")
 
 const storage = multer.diskStorage({
@@ -110,5 +111,74 @@ export const loginFaculty = async (req, res) => {
 
     } catch (e) {
         return handleError(res, 500, `internal error ${e}`)
+    }
+}
+
+
+
+// Update faculty by Admin and Faculty Id
+export const updateFaculty = async(req, res) => {
+    const {adminid, fid} = req.params;
+    const {facultyName, facultyEmail, facultyMobile, adminId} = req.body;
+
+    // Validate input
+    if (!adminid || !fid) {
+        return handleError(res, 400, "Admin ID or Faculty ID not provided.");
+    }
+
+    // Check if IDs are valid ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(adminid) || !mongoose.Types.ObjectId.isValid(fid)) {
+        return handleError(res, 400, "Invalid Admin ID or Faculty ID format.");
+    }
+
+    try {
+        // Check Admin ID
+        const isValidAdminId = await adminModel.findById(adminid);
+        if(!isValidAdminId) 
+            return handleError(res, 400, "Admin not found with the provided ID.")
+
+        const checkIds = isValidAdminId._id.toString() !== adminId.toString();
+        if(checkIds) {
+            return handleError(res,400,"Invalid admin id from body field")
+        }
+        
+        // Check Faculty ID
+        const isValidFacultyId = await facultyModel.findByIdAndUpdate(fid, {facultyName, facultyEmail, facultyMobile, adminId}, {new:true});
+    
+        if(!isValidFacultyId){
+            return handleError(res, 400, "Faculty not found or updated with the provided ID.")
+        }
+            return handleError(res, 200, "Faculty Updated Successfully", isValidFacultyId)
+        
+    } catch (error) {
+        // console.error("Error finding faculty by ID:", error);
+        return handleError(res,500,"Internal Server Error")
+    }
+}
+
+
+
+// Get Course by faculty
+export const getCourses = async(req, res) => {
+    const { fid } = req.params;
+
+    // Validate faculty ID format
+    if (!fid || !mongoose.Types.ObjectId.isValid(fid)) {
+        return handleError(res, 400, "Invalid Faculty ID format or Faculty ID not provided.");
+    }
+
+    // Check faculty ID in the database
+    let isValidFaculty;
+    try {
+        isValidFaculty = await facultyModel.findById(fid);
+        if (!isValidFaculty) {
+            return handleError(res, 400, "Faculty not found with the provided ID.");
+        }
+        const findCourses = await courseModel.find({ facultyId: fid }).populate('facultyId');
+        if(!findCourses || findCourses.length === 0)
+            return handleError(res, 400, "Courses not found for this faculty.")
+        return handleError(res, 200, "Courses found", findCourses)
+    } catch (error) {
+        return handleError(res, 500, `Database error while finding faculty: ${error.message}`);
     }
 }
