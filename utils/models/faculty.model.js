@@ -8,6 +8,15 @@ const facultySchema = new mongoose.Schema({
         unique: true,
         required: true
     },
+    varified: {
+        type: Boolean,
+        enum: ['pending', 'verified'],
+        default: false
+    },
+    varifyEmailCount: {
+        type: Number,
+        default: 0
+    },
     facultyMobile: {
         type: String,
         required: true
