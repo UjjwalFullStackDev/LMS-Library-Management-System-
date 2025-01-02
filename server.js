@@ -4,6 +4,7 @@ import 'dotenv/config';
 import db from './utils/database/db.js';
 import adminRouter from './utils/routers/admin.route.js';
 import facultyRouter from './utils/routers/faculty.route.js';
+import cookieParser from 'cookie-parser'
 
 const port = process.env.PORT || 4000;
 
@@ -16,6 +17,7 @@ import studentRouter from './utils/routers/student.route.js';
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
 app.use(cors('*'));
+app.use(cookieParser());
 
 
 // ! adminRouter

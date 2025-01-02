@@ -8,7 +8,7 @@ import adminModel from '../models/admin.model.js';
 import mongoose from 'mongoose';
 import courseModel from '../models/course.model.js';
 
-// Upload media file
+// ! Upload media file
 const facultyPath = path.join("public/faculty/")
 
 const storage = multer.diskStorage({
@@ -23,7 +23,7 @@ const storage = multer.diskStorage({
 export const facultyMulter = multer({ storage: storage })
 
 
-//create faculty API
+// ! create faculty API
 
 export const createFaculty = async(req, res) => {
     const {adminid} = req.params;
@@ -88,8 +88,51 @@ export const createFaculty = async(req, res) => {
 }
 
 
-//login faculty API
 
+// ! Token generation functions
+function generateToken(userid){
+    return jwt.sign({ userid }, process.env.SECRET_KEY, { expiresIn: '30s' });
+}
+
+function generateRefreshToken(userid){
+    return jwt.sign({ userid }, process.env.SECRET_KEY, { expiresIn: '1m' });
+}
+
+
+// ! Token refresh functions
+export const refresh = (req, res) => {
+    const { refreshToken } = req.cookies;
+
+    // Check if refresh token exists
+    if (!refreshToken) {
+        return handleError(res, 400, "Refresh token not found");
+    }
+
+    // Verify the refresh token
+    jwt.verify(refreshToken, process.env.SECRET_KEY, (err, decoded) => {
+        if (err) {
+            return handleError(res, 400, "Refresh token expired or invalid");
+        }
+
+        // Generate a new access token
+        const newAccessToken = generateToken(decoded.userid);
+
+        // Set the new access token as a cookie
+        res.cookie("accessToken", newAccessToken, {
+            httpOnly: true,
+            maxAge: 2 * 60 * 1000, // 2 minutes
+        });
+
+        // Respond with success
+        return res.status(200).json({
+            message: "Token refreshed successfully",
+            accessToken: newAccessToken,
+        });
+    });
+};
+
+
+// ! Faculty login controller
 export const loginFaculty = async (req, res) => {
     const {facultyEmail, facultyPassword} = req.body;
 
@@ -97,26 +140,49 @@ export const loginFaculty = async (req, res) => {
         return handleError(res, 400, "All field are required");
     }
     try {
-        const checkEmail = await facultyModel.findOne({facultyEmail});
-        if(!checkEmail)
+        // Check if faculty exists
+        const faculty = await facultyModel.findOne({ facultyEmail });
+        if (!faculty) {
             return handleError(res, 400, "Invalid faculty email");
-        
-        const comparePass = await bcrypt.compare(facultyPassword, checkEmail.facultyPassword)
-        
-        if(!comparePass) {
-            return handleError(res, 400, "Invalid faculty password");
-        }else{
-            return handleError(res, 200, "Login Successfull");
         }
 
-    } catch (e) {
-        return handleError(res, 500, `internal error ${e}`)
+        // Verify password
+        const isPasswordValid = await bcrypt.compare(facultyPassword, faculty.facultyPassword);
+        if (!isPasswordValid) {
+            return handleError(res, 400, "Invalid faculty password");
+        }
+
+        // Generate tokens
+        const userid = faculty._id;
+        const accessToken = generateToken(userid);
+        const refreshToken = generateRefreshToken(userid);
+
+        // Set cookies
+        res.cookie("accessToken", accessToken, {
+            httpOnly: true,
+            maxAge: 7 * 24 * 60 * 1000, // 7 days
+        });
+        res.cookie("refreshToken", refreshToken, {
+            httpOnly: true,
+            maxAge: 7 * 24 * 60 * 1000, // 7 days
+        });
+
+        // Respond with success
+        return res.status(200).json({
+            message: "Login Successful",
+            faculty,
+            accessToken,
+            refreshToken,
+        });
+
+    } catch (error) {
+        return handleError(res, 500, `Internal server error: ${error.message}`);
     }
 }
 
 
 
-// Update faculty by Admin and Faculty Id
+// ! Update faculty by Admin and Faculty Id
 export const updateFaculty = async(req, res) => {
     const {adminid, fid} = req.params;
     const {facultyName, facultyEmail, facultyMobile, adminId} = req.body;
@@ -158,10 +224,10 @@ export const updateFaculty = async(req, res) => {
 
 
 
-// Get Course by faculty
+// ! Get Course by faculty
 export const getCourses = async(req, res) => {
     const { fid } = req.params;
-
+   
     // Validate faculty ID format
     if (!fid || !mongoose.Types.ObjectId.isValid(fid)) {
         return handleError(res, 400, "Invalid Faculty ID format or Faculty ID not provided.");
@@ -180,5 +246,46 @@ export const getCourses = async(req, res) => {
         return handleError(res, 200, "Courses found", findCourses)
     } catch (error) {
         return handleError(res, 500, `Database error while finding faculty: ${error.message}`);
+    }
+}
+
+
+// ! Faculty password reset
+export const resetFacultyPassword = async(req,res) => {
+    const {fid} = req.params;
+    const {facultyPassword, newPassword} = req.body;
+
+    // Validate faculty Password
+    if (!facultyPassword) {
+        return handleError(res, 400, "Old password is requires.");
+    }
+
+    try {
+        const isValidFaculty = await facultyModel.findById(fid);
+        if(!isValidFaculty)
+            return handleError(res, 400, "Faculty not found.");
+        const comparePassword = await bcrypt.compare(facultyPassword, isValidFaculty.facultyPassword)
+        if (!comparePassword)
+            return handleError(res, 400, "Old Password is incorrect");
+        if(facultyPassword === newPassword)
+            return handleError(res, 400, "Please enter new password you haven't used before")
+
+        // Hash the password
+        const salt = await bcrypt.genSalt(12);
+        const newHashedPassword = await bcrypt.hash(newPassword, salt);
+
+        const faculty = await facultyModel.findByIdAndUpdate(fid,{
+            facultyPassword: newHashedPassword,
+        });
+
+        // Save admin to the database
+        const saveFaculty = await faculty.save();
+        if (!saveFaculty)
+            return handleError(res, 400, "Cannot save faculty")
+        return handleError(res, 201, "New faculty password created successfully")
+
+        
+    } catch (error) {
+        return handleError(res, 500, `Database error while reseting faculty: ${error.message}`);
     }
 }
